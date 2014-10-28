@@ -297,8 +297,8 @@ void dispatch_To_issue(int current_cycle) {
   /* ECE552: YOUR CODE GOES HERE */
   if (instr_queue_size <= 0) return;
 
-  int i, reg_num;
-  int dispatch = 0;
+  int i, j, reg_num;
+  int issue = 0;
   instruction_t *instr = NULL;
 
   for (i = 0; i < INSTR_QUEUE_SIZE; i++) {
@@ -306,7 +306,7 @@ void dispatch_To_issue(int current_cycle) {
 
     if (IS_COND_CTRL(instr->op) || IS_UNCOND_CTRL(instr->op)) {
       // Jump and branch can dispatch right away.
-      instr->tom_dispatch_cycle = current_cycle;
+      instr->tom_issue_cycle = current_cycle;
       // Simply remove from instr queue.
       instr_queue[instr_queue_start] = NULL;
       instr_queue_start++;
@@ -315,36 +315,36 @@ void dispatch_To_issue(int current_cycle) {
 
     } else if (USES_INT_FU(instr->op)) {
       // Find available reservation station.
-      for (i = 0; reservINT[i] != NULL; i++) {}
-      if (i < RESERV_INT_SIZE) {
-        reservINT[i] = instr;
-        dispatch = 1;
+      for (j = 0; reservINT[j] != NULL; j++) {}
+      if (j < RESERV_INT_SIZE) {
+        reservINT[j] = instr;
+        issue = 1;
       }
 
     } else if (USES_FP_FU(instr->op)) {
       // Find available reservation station.
-      for (i = 0; reservFP[i] != NULL; i++) {}
-      if (i < RESERV_FP_SIZE) {
-        reservFP[i] = instr;
-        dispatch = 1;
+      for (j = 0; reservFP[j] != NULL; j++) {}
+      if (j < RESERV_FP_SIZE) {
+        reservFP[j] = instr;
+        issue = 1;
       }
     }
 
-    if (dispatch) {
-      instr->tom_dispatch_cycle = current_cycle;
+    if (issue) {
+      instr->tom_issue_cycle = current_cycle;
 
       // Collect input values/tags first
-      for (i = 0; i < 3; i++) {
-        reg_num = instr->r_in[i];
+      for (j = 0; j < 3; j++) {
+        reg_num = instr->r_in[j];
         if (reg_num != 0 && map_table[reg_num] != NULL) {
           // Map table indicates that an input reg is not ready.
-          instr->Q[i] = map_table[reg_num];
+          instr->Q[j] = map_table[reg_num];
         }
       }
 
       // Update the map table with output reg
-      for (i = 0; i < 2; i++) {
-        reg_num = instr->r_out[i];
+      for (j = 0; j < 2; j++) {
+        reg_num = instr->r_out[j];
         if (reg_num != 0) {
           map_table[reg_num] = instr;
         }
