@@ -202,7 +202,7 @@ void issue_To_execute(int current_cycle) {
     for (j = 0; j < RESERV_INT_SIZE; j++) {
       instr = reservINT[j];
       if (instr == NULL) continue;
-      if (instr->tom_issue_cycle != 0) continue; // Issued.
+      if (instr->tom_issue_cycle > 0) continue; // Issued.
 
       // Check if instruction is ready to execute.
       ready = 1;
@@ -243,7 +243,7 @@ void issue_To_execute(int current_cycle) {
     for (j = 0; j < RESERV_FP_SIZE; j++) {
       instr = reservFP[j];
       if (instr == NULL) continue;
-      if (instr->tom_issue_cycle != 0) continue; // Issued.
+      if (instr->tom_issue_cycle > 0) continue; // Issued.
 
       // Check if instruction is ready to execute.
       ready = 1;
