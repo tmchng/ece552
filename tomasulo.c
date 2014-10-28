@@ -620,14 +620,11 @@ counter_t runTomasulo(instruction_trace_t* trace)
 	fetch_To_dispatch(trace ,cycle);
 
 	cycle++;
-        if (cycle >= 100) {
+        if (is_simulation_done(sim_insn_count) || cycle >= 100000000) {
           print_all_instr(trace, sim_num_insn);
           break;
 
         }
-
-        //if (is_simulation_done(sim_insn_count))
-        //  break;
   }
 
   return cycle;
