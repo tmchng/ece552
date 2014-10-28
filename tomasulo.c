@@ -85,6 +85,7 @@ static int instr_queue_size = 0;
 /* ECE552 Assignment 3 - BEGIN CODE */
 // For keeping track of where the head and tail of the queue is.
 static int instr_queue_start = 0;
+static int bool_instr_complete = 0;
 /* ECE552 Assignment 3 - END CODE */
 
 //reservation stations (each reservation station entry contains a pointer to an instruction)
@@ -125,7 +126,7 @@ static int fetch_index = -1;
 static bool is_simulation_done(counter_t sim_insn) {
 
   /* ECE552: YOUR CODE GOES HERE */
-
+if (sim_insn == 1000000)
   return true; //ECE552: you can change this as needed; we've added this so the code provided to you compiles
 }
 
@@ -140,46 +141,40 @@ static bool is_simulation_done(counter_t sim_insn) {
 void CDB_To_retire(int current_cycle) {
 
   /* ECE552: YOUR CODE GOES HERE */
-	int i, rs_index, fp_bool, fu_index;
-	instruction_t *instr = NULL;
-	int cycle_fetched = -1;
+	int i, j, fp_bool;
+	instruction_t *instr = commonDataBus;
 	// fp_bool => if 1, instr in the CDB is a FP inst
 	// instr => insn pointer
 	// rs_index => index of insn in RS
 	// fu_index => index of insn in FU
 	// cycle_fetched => used to compare multiple insn, to check which was fetched first
 
-	// find an instr ready to retire
-	for (i = 0; i < RESERV_FP_SIZE ; i++){
-		if (current_cycle == reservFP[i]->tom_cdb_cycle + 1){ // stage where writeback is complete
-			fp_bool = 1;
-			instr = reservFP[i];
-			rs_index = i;
-			if (cycle_fetched == -1 || cycle_fetched > instr->tom_dispatch_cycle){
-				cycle_fetched = instr->tom_dispatch_cycle;
-			} 
-		}
-	}
-	
-	for (i = 0; i < RESERV_INT_SIZE && !fp_bool; i++){
-		if (current_cycle == reservINT[i]->tom_cdb_cycle + 1){ // stage where writeback is complete
-			instr = reservINT[i];
-			rs_index = i;
-			if (cycle_fetched == -1 || cycle_fetched > instr->tom_dispatch_cycle){
-				cycle_fetched = instr->tom_dispatch_cycle;
-			} 
-		}
-
-	}
-	
-	
 	if (instr != NULL){
-		// broadcase. this is shown as freeing the RS/maptable/FU
-		if (fp_bool){
-			reservFP[rs_index] = NULL;
-		} else {
-			reservINT[rs_index] = NULL;
+		// broadcast complete. this is shown as freeing the RS/maptable/FU/CDB
+		for (i = 0;  i < RESERV_FP_SIZE ; i++){
+			if (instr == reservFP[i]){
+				reservFP[i] = NULL;
+				fp_bool = 1;
+			}
+			if (reservFP[i] != NULL){
+				for (j = 0; j < 3; j ++){
+					if (reservFP[i]->Q[j] == instr)// clear dependencies (resolve RAQs)
+						reservFP[i]->Q[j] = NULL;
+				}
+			}
 		}
+		for (i = 0;  i < RESERV_INT_SIZE ; i++){
+			if (instr == reservINT[i] && !fp_bool){
+				reservINT[i] = NULL;
+			}
+			if (reservINT[i] != NULL){
+				for (j = 0; j < 3; j ++){
+					if (reservINT[i]->Q[j] == instr)// clear dependencies (resolve RAQs)
+						reservINT[i]->Q[j] = NULL;
+				}
+			}
+		}
+		commonDataBus = NULL;
 		for (i = 0; i < FU_INT_SIZE && !fp_bool; i++){	
 			if (instr == fuINT[i]){
 				fuINT[i] = NULL;
@@ -196,26 +191,8 @@ void CDB_To_retire(int current_cycle) {
 				map_table[i] = NULL;
 			}
 		}
-		int j;
-		// clear dependencies (resolve RAQs)
-		for (i = 0;  i < RESERV_INT_SIZE ; i++){
-			if (reservINT[i] != NULL){
-				for (j = 0; j < 3; j ++){
-					if (reservINT[i]->Q[j] == instr)
-						reservINT[i]->Q[j] = NULL;
-				}
-			}
-		}
-		for (i = 0;  i < RESERV_FP_SIZE ; i++){
-			if (reservFP[i] != NULL){
-				for (j = 0; j < 3; j ++){
-					if (reservFP[i]->Q[j] == instr)
-						reservFP[i]->Q[j] = NULL;
-				}
-			}
-		}
+		bool_instr_complete = 1;
 	}
-
 }
 
 
@@ -542,12 +519,18 @@ counter_t runTomasulo(instruction_trace_t* trace)
 
      /* ECE552: YOUR CODE GOES HERE */
 
-    // Write back
-    // Execute
-    // Dispatch
-    // Fetch
+	CDB_To_retire(cycle);
+	execute_To_CDB(cycle);
+	issue_To_execute(cycle);
+	dispatch_To_issue(cycle);
+	fetch_To_dispatch(trace ,cycle);
 
-     cycle++;
+	cycle++;
+
+	if (bool_instr_complete){
+		bool_instr_complete = 0;
+		sim_num_insn ++;
+	}
 
      if (is_simulation_done(sim_num_insn))
         break;
