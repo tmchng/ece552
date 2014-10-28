@@ -175,7 +175,7 @@ void CDB_To_retire(int current_cycle) {
 			}
 		}
 		commonDataBus = NULL;
-		for (i = 0; i < FU_INT_SIZE && !fp_bool; i++){	
+		for (i = 0; i < FU_INT_SIZE && !fp_bool; i++){
 			if (instr == fuINT[i]){
 				fuINT[i] = NULL;
 			}
@@ -207,7 +207,50 @@ void CDB_To_retire(int current_cycle) {
 void execute_To_CDB(int current_cycle) {
 
   /* ECE552: YOUR CODE GOES HERE */
+  int i;
+  int instr_completed = 0;
+  instruction_t *completed[FU_INT_SIZE + FU_FP_SIZE];
+  instruction_t *instr = NULL;
+  instruction_t *old_instr = NULL;
 
+  // Store does not need CDB
+  // Figure out which instructions are completed.
+  for (i = 0; i < FU_INT_SIZE; i++) {
+    instr = fuINT[i];
+    if (instr != NULL &&
+        (current_cycle - instr->tom_execute_cycle) >= FU_INT_LATENCY) {
+      completed[instr_completed] = instr;
+      instr_completed++;
+    }
+  }
+
+  for (i = 0; i < FU_FP_SIZE; i++) {
+    instr = fuFP[i];
+    if (instr != NULL &&
+        (current_cycle - instr->tom_execute_cycle) >= FU_FP_LATENCY) {
+      completed[instr_completed] = instr;
+      instr_completed++;
+    }
+  }
+
+  if (instr_completed <= 0) return; // No instr completed.
+
+  // Try to move a completed instruction to CDB
+  // Find the oldest instr
+  for (i = 0; i < instr_completed; i++) {
+    instr = completed[i];
+    if (old_instr == NULL) {
+      old_instr = instr;
+    } else if (old_instr->index > instr->index) {
+      // Replace with the older instr.
+      old_instr = instr;
+    }
+  }
+
+  assert(old_instr != NULL);
+
+  // Reserve CDB
+  old_instr->tom_cdb_cycle = current_cycle;
 }
 
 /*
