@@ -140,6 +140,81 @@ static bool is_simulation_done(counter_t sim_insn) {
 void CDB_To_retire(int current_cycle) {
 
   /* ECE552: YOUR CODE GOES HERE */
+	int i, rs_index, fp_bool, fu_index;
+	instruction_t *instr = NULL;
+	int cycle_fetched = -1;
+	// fp_bool => if 1, instr in the CDB is a FP inst
+	// instr => insn pointer
+	// rs_index => index of insn in RS
+	// fu_index => index of insn in FU
+	// cycle_fetched => used to compare multiple insn, to check which was fetched first
+
+	// find an instr ready to retire
+	for (i = 0; i < RESERV_FP_SIZE ; i++){
+		if (current_cycle == reservFP[i]->tom_cdb_cycle + 1){ // stage where writeback is complete
+			fp_bool = 1;
+			instr = reservFP[i];
+			rs_index = i;
+			if (cycle_fetched == -1 || cycle_fetched > instr->tom_dispatch_cycle){
+				cycle_fetched = instr->tom_dispatch_cycle;
+			} 
+		}
+	}
+	
+	for (i = 0; i < RESERV_INT_SIZE && !fp_bool; i++){
+		if (current_cycle == reservINT[i]->tom_cdb_cycle + 1){ // stage where writeback is complete
+			instr = reservINT[i];
+			rs_index = i;
+			if (cycle_fetched == -1 || cycle_fetched > instr->tom_dispatch_cycle){
+				cycle_fetched = instr->tom_dispatch_cycle;
+			} 
+		}
+
+	}
+	
+	
+	if (instr != NULL){
+		// broadcase. this is shown as freeing the RS/maptable/FU
+		if (fp_bool){
+			reservFP[rs_index] = NULL;
+		} else {
+			reservINT[rs_index] = NULL;
+		}
+		for (i = 0; i < FU_INT_SIZE && !fp_bool; i++){	
+			if (instr == fuINT[i]){
+				fuINT[i] = NULL;
+			}
+		}
+		for (i = 0; i < FU_FP_SIZE && fp_bool; i++){
+			if (instr == fuFP[i]){
+				fuFP[i] = NULL;
+			}
+		}
+		// clear map table
+		for (i = 0; i < MD_TOTAL_REGS; i++){
+			if (map_table[i] == instr){
+				map_table[i] = NULL;
+			}
+		}
+		int j;
+		// clear dependencies (resolve RAQs)
+		for (i = 0;  i < RESERV_INT_SIZE ; i++){
+			if (reservINT[i] != NULL){
+				for (j = 0; j < 3; j ++){
+					if (reservINT[i]->Q[j] == instr)
+						reservINT[i]->Q[j] = NULL;
+				}
+			}
+		}
+		for (i = 0;  i < RESERV_FP_SIZE ; i++){
+			if (reservFP[i] != NULL){
+				for (j = 0; j < 3; j ++){
+					if (reservFP[i]->Q[j] == instr)
+						reservFP[i]->Q[j] = NULL;
+				}
+			}
+		}
+	}
 
 }
 
