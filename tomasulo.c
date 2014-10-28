@@ -171,7 +171,7 @@ void execute_To_CDB(int current_cycle) {
 void issue_To_execute(int current_cycle) {
 
   /* ECE552: YOUR CODE GOES HERE */
-  int i, j;
+  int i, j, k;
   int freeFuINT = 0;
   int freeFuINTi[FU_INT_SIZE];
   int freeFuFP = 0;
@@ -181,12 +181,14 @@ void issue_To_execute(int current_cycle) {
   instruction_t *instr = NULL;
   instruction_t *old_instr = NULL;
 
+  // Count number of free INT FU's.
   for (i = 0; i < FU_INT_SIZE; i++) {
     if (fuINT[i] == NULL) {
       freeFuINTi[i] = i;
       freeFuINT++;
     }
   }
+  // Count number of free FP FU's.
   for (i = 0; i < FU_FP_SIZE; i++) {
     if (fuFP[i] == NULL) {
       freeFuFPi[i] = i;
@@ -194,7 +196,7 @@ void issue_To_execute(int current_cycle) {
     }
   }
 
-  for (i = 0; i < freeFuINT; i++) {
+  while (freeFuINT > 0) {
     // Get the oldest instruction from reservINT
     old_instr = NULL;
     for (j = 0; j < RESERV_INT_SIZE; j++) {
@@ -203,14 +205,26 @@ void issue_To_execute(int current_cycle) {
       if (instr->tom_issue_cycle != 0) continue; // Issued.
 
       // Check if instruction is ready to execute.
+      ready = 1;
+      for (k = 0; k < 3; k++) {
+        if (instr->Q[k] != NULL) {
+          // One of the input is not ready.
+          ready = 0;
+          break;
+        }
+      }
 
-      if (old_instr == NULL) {
-        old_instr = instr;
-      } else if (old_instr->index > instr->index){
-        // Replace with older instruction
-        old_instr = instr;
+      if (ready) {
+        // Prioritize older instructions first
+        if (old_instr == NULL) {
+          old_instr = instr;
+        } else if (old_instr->index > instr->index){
+          // Replace with older instruction
+          old_instr = instr;
+        }
       }
     }
+
     if (old_instr == NULL) {
       // There's no instruction in the RS.
       break;
@@ -218,70 +232,51 @@ void issue_To_execute(int current_cycle) {
 
     // Execute the oldest instruction.
     old_instr->tom_execute_cycle = current_cycle;
-
+    // Reserve the functional unit.
+    fuINT[freeFuINTi[freeFuINT-1]] = old_instr;
+    freeFuINT--;
   }
 
+  while (freeFuFP > 0) {
+    // Get the oldest instruction from reservFP
+    old_instr = NULL;
+    for (j = 0; j < RESERV_FP_SIZE; j++) {
+      instr = reservFP[j];
+      if (instr == NULL) continue;
+      if (instr->tom_issue_cycle != 0) continue; // Issued.
 
+      // Check if instruction is ready to execute.
+      ready = 1;
+      for (k = 0; k < 3; k++) {
+        if (instr->Q[k] != NULL) {
+          // One of the input is not ready.
+          ready = 0;
+          break;
+        }
+      }
 
-  // Check all instructions in the reservation stations
-  // Prioritize old instructions first.
-  for (i = 0; i < RESERV_INT_SIZE; i++) {
-    instr = reservINT[i];
-    if (instr == NULL) continue;
-    if (instr->tom_issue_cycle != 0) continue; // Already issued;
-
-    // Check if the instruction has all the values it needs to proceed.
-    // If all Q's are NULL, it means the instruction is good to go.
-    ready = 1;
-    for (j = 0; j < 3; j++) {
-      ready &= (instr->Q[j] == NULL);
-    }
-    if (!ready) continue;
-
-    // Check if a int FU is free.
-    ready = 0;
-    for (j = 0; j < FU_INT_SIZE; j++) {
-      if (fuINT[j] == NULL) {
-        fuINT[j] = instr;
-        ready = 1;
-        break;
+      if (ready) {
+        // Prioritize older instructions first
+        if (old_instr == NULL) {
+          old_instr = instr;
+        } else if (old_instr->index > instr->index){
+          // Replace with older instruction
+          old_instr = instr;
+        }
       }
     }
-    if (!ready) continue;
 
-    // Issue the instruction
-    //instr->tom_issue_cycle = current_cycle;
-  }
-
-  for (i = 0; i < RESERV_FP_SIZE; i++) {
-    instr = reservFP[i];
-    if (instr == NULL) continue;
-    if (instr->tom_issue_cycle != 0) continue; // Already issued;
-
-    // Check if the instruction has all the values it needs to proceed.
-    // If all Q's are NULL, it means the instruction is good to go.
-    ready = 1;
-    for (j = 0; j < 3; j++) {
-      ready &= (instr->Q[j] == NULL);
+    if (old_instr == NULL) {
+      // There's no instruction in the RS.
+      break;
     }
-    if (!ready) continue;
 
-    // Check if a FP FU is free.
-    ready = 0;
-    for (j = 0; j < FU_FP_SIZE; j++) {
-      if (fuFP[j] == NULL) {
-        fuFP[j] = instr;
-        ready = 1;
-        break;
-      }
-    }
-    if (!ready) continue;
-
-    // Issue the instruction
-    //instr->tom_issue_cycle = current_cycle;
+    // Execute the oldest instruction.
+    old_instr->tom_execute_cycle = current_cycle;
+    // Reserve the functional unit.
+    fuFP[freeFuFPi[freeFuFP-1]] = old_instr;
+    freeFuFP--;
   }
-
-  // Check the issued cycle and execute older instructions first.
 }
 
 /*
