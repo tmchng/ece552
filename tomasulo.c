@@ -126,8 +126,7 @@ static int fetch_index = -1;
 static bool is_simulation_done(counter_t sim_insn) {
 
   /* ECE552: YOUR CODE GOES HERE */
-if (sim_insn == 1000000)
-  return true; //ECE552: you can change this as needed; we've added this so the code provided to you compiles
+  return sim_insn >= 1000000;
 }
 
 /*
@@ -207,7 +206,8 @@ void CDB_To_retire(int current_cycle) {
 void execute_To_CDB(int current_cycle) {
 
   /* ECE552: YOUR CODE GOES HERE */
-  int i;
+  int i, j;
+  // Num of intr that are completed and don't need CDB.
   int instr_completed = 0;
   instruction_t *completed[FU_INT_SIZE + FU_FP_SIZE];
   instruction_t *instr = NULL;
@@ -219,8 +219,19 @@ void execute_To_CDB(int current_cycle) {
     instr = fuINT[i];
     if (instr != NULL &&
         (current_cycle - instr->tom_execute_cycle) >= FU_INT_LATENCY) {
-      completed[instr_completed] = instr;
-      instr_completed++;
+      if (WRITES_CDB(instr->op)) {
+        // We prioritize the oldest instruction first
+        if (old_instr == NULL) {
+          old_instr = instr;
+        } else if (old_instr->index > instr->index) {
+          old_instr = instr;
+        }
+
+      } else {
+        // These instructions don't need CDB
+        completed[instr_completed] = instr;
+        instr_completed++;
+      }
     }
   }
 
@@ -228,29 +239,63 @@ void execute_To_CDB(int current_cycle) {
     instr = fuFP[i];
     if (instr != NULL &&
         (current_cycle - instr->tom_execute_cycle) >= FU_FP_LATENCY) {
-      completed[instr_completed] = instr;
-      instr_completed++;
+      if (WRITES_CDB(instr->op)) {
+        // We prioritize the oldest instruction first
+        if (old_instr == NULL) {
+          old_instr = instr;
+        } else if (old_instr->index > instr->index) {
+          old_instr = instr;
+        }
+
+      } else {
+        // These instructions don't need CDB
+        completed[instr_completed] = instr;
+        instr_completed++;
+      }
     }
   }
 
-  if (instr_completed <= 0) return; // No instr completed.
+  if (old_instr != NULL) {
+    // Move the oldest completed instruction to CDB
+    old_instr->tom_cdb_cycle = current_cycle;
+    commonDataBus = old_instr;
+    // Retire will handle deallocate RS and FU for instruction
+    // that needs CDB.
+  }
 
-  // Try to move a completed instruction to CDB
-  // Find the oldest instr
+  // For every completed instructions that don't need CDB,
+  // deallocate RS and FU
   for (i = 0; i < instr_completed; i++) {
     instr = completed[i];
-    if (old_instr == NULL) {
-      old_instr = instr;
-    } else if (old_instr->index > instr->index) {
-      // Replace with the older instr.
-      old_instr = instr;
+    if (USES_FP_FU(instr->op)) {
+      for (j = 0; j < FU_FP_SIZE; j++) {
+        if (fuFP[j] == instr) {
+          fuFP[j] = NULL;
+          break;
+        }
+      }
+      for (j = 0; j < RESERV_FP_SIZE; j++) {
+        if (reservFP[j] == instr) {
+          reservFP[j] = NULL;
+          break;
+        }
+      }
+
+    } else if (USES_INT_FU(instr->op)) {
+      for (j = 0; j < FU_INT_SIZE; j++) {
+        if (fuINT[j] == instr) {
+          fuINT[j] = NULL;
+          break;
+        }
+      }
+      for (j = 0; j < RESERV_INT_SIZE; j++) {
+        if (reservINT[j] == instr) {
+          reservINT[j] = NULL;
+          break;
+        }
+      }
     }
   }
-
-  assert(old_instr != NULL);
-
-  // Reserve CDB
-  old_instr->tom_cdb_cycle = current_cycle;
 }
 
 /*
@@ -399,7 +444,7 @@ void dispatch_To_issue(int current_cycle) {
       instr->tom_issue_cycle = current_cycle;
       // Simply remove from instr queue.
       instr_queue[instr_queue_start] = NULL;
-      instr_queue_start++;
+      instr_queue_start = (instr_queue_start + 1) % INSTR_QUEUE_SIZE;
       instr_queue_size--;
       continue;
 
@@ -442,7 +487,7 @@ void dispatch_To_issue(int current_cycle) {
 
       // Remove instr from queue.
       instr_queue[instr_queue_start] = NULL;
-      instr_queue_start++;
+      instr_queue_start = (instr_queue_start + 1) % INSTR_QUEUE_SIZE;
       instr_queue_size--;
 
     } else {
@@ -570,6 +615,11 @@ counter_t runTomasulo(instruction_trace_t* trace)
 
 	cycle++;
 
+        // Tim: why do we do this?
+        // If we need to count number of instructions that actually
+        // go through the pipeline, then we need to look at
+        // execute_to_cdb as well, because some instructions don't
+        // need CDB.
 	if (bool_instr_complete){
 		bool_instr_complete = 0;
 		sim_num_insn ++;
