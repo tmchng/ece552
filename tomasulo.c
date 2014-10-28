@@ -302,7 +302,7 @@ void dispatch_To_issue(int current_cycle) {
   instruction_t *instr = NULL;
 
   for (i = 0; i < INSTR_QUEUE_SIZE; i++) {
-    instruction_t *instr = instr_queue[(instr_queue_start+i)%INSTR_QUEUE_SIZE];
+    instr = instr_queue[(instr_queue_start+i)%INSTR_QUEUE_SIZE];
 
     if (IS_COND_CTRL(instr->op) || IS_UNCOND_CTRL(instr->op)) {
       // Jump and branch can dispatch right away.
@@ -354,6 +354,10 @@ void dispatch_To_issue(int current_cycle) {
       instr_queue[instr_queue_start] = NULL;
       instr_queue_start++;
       instr_queue_size--;
+
+    } else {
+      // Cannot go from dispatch to issue out of order.
+      return;
     }
   }
 }
