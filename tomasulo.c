@@ -85,7 +85,8 @@ static int instr_queue_size = 0;
 /* ECE552 Assignment 3 - BEGIN CODE */
 // For keeping track of where the head and tail of the queue is.
 static int instr_queue_start = 0;
-static int bool_instr_complete = 0;
+// Number of instructions completed in simulation.
+static int sim_insn_count = 0;
 /* ECE552 Assignment 3 - END CODE */
 
 //reservation stations (each reservation station entry contains a pointer to an instruction)
@@ -105,7 +106,7 @@ static instruction_t* map_table[MD_TOTAL_REGS];
 //the index of the last instruction fetched
 /* ECE552 Assignment 3 - BEGIN CODE */
 // Fetch index is zero-indexed.
-static int fetch_index = -1;
+static int fetch_index = 0;
 /* ECE552 Assignment 3 - END CODE */
 
 /* FUNCTIONAL UNITS */
@@ -190,7 +191,7 @@ void CDB_To_retire(int current_cycle) {
 				map_table[i] = NULL;
 			}
 		}
-		bool_instr_complete = 1;
+                sim_insn_count++;
 	}
 }
 
@@ -267,6 +268,7 @@ void execute_To_CDB(int current_cycle) {
   // deallocate RS and FU
   for (i = 0; i < instr_completed; i++) {
     instr = completed[i];
+    sim_insn_count++;
     if (USES_FP_FU(instr->op)) {
       for (j = 0; j < FU_FP_SIZE; j++) {
         if (fuFP[j] == instr) {
@@ -438,6 +440,10 @@ void dispatch_To_issue(int current_cycle) {
 
   for (i = 0; i < INSTR_QUEUE_SIZE; i++) {
     instr = instr_queue[(instr_queue_start+i)%INSTR_QUEUE_SIZE];
+    if (instr == NULL) {
+      // We have to issue in order.
+      return;
+    }
 
     if (IS_COND_CTRL(instr->op) || IS_UNCOND_CTRL(instr->op)) {
       // Jump and branch can dispatch right away.
@@ -513,7 +519,7 @@ void fetch(instruction_trace_t* trace) {
   if (instr_queue_size < INSTR_QUEUE_SIZE) {
 
     // Fetch ONE instruction
-    // fetch_index should be zero indexed.
+    // Fetch index starts from 1
     fetch_index++;
     new_instr = get_instr(trace, fetch_index);
 
@@ -555,7 +561,7 @@ void fetch_To_dispatch(instruction_trace_t* trace, int current_cycle) {
   // at the last thing in the queue.
   int queue_end = (instr_queue_start + instr_queue_size - 1) % INSTR_QUEUE_SIZE;
   instruction_t *instr = instr_queue[queue_end];
-  if (instr != NULL && instr->tom_dispatch_cycle != 0) {
+  if (instr != NULL && instr->tom_dispatch_cycle <= 0) {
     instr->tom_dispatch_cycle = current_cycle;
   }
 }
@@ -614,19 +620,14 @@ counter_t runTomasulo(instruction_trace_t* trace)
 	fetch_To_dispatch(trace ,cycle);
 
 	cycle++;
+        if (cycle >= 100) {
+          print_all_instr(trace, sim_num_insn);
+          break;
 
-        // Tim: why do we do this?
-        // If we need to count number of instructions that actually
-        // go through the pipeline, then we need to look at
-        // execute_to_cdb as well, because some instructions don't
-        // need CDB.
-	if (bool_instr_complete){
-		bool_instr_complete = 0;
-		sim_num_insn ++;
-	}
+        }
 
-     if (is_simulation_done(sim_num_insn))
-        break;
+        //if (is_simulation_done(sim_insn_count))
+        //  break;
   }
 
   return cycle;
