@@ -326,14 +326,14 @@ void issue_To_execute(int current_cycle) {
   // Count number of free INT FU's.
   for (i = 0; i < FU_INT_SIZE; i++) {
     if (fuINT[i] == NULL) {
-      freeFuINTi[i] = i;
+      freeFuINTi[freeFuINT] = i;
       freeFuINT++;
     }
   }
   // Count number of free FP FU's.
   for (i = 0; i < FU_FP_SIZE; i++) {
     if (fuFP[i] == NULL) {
-      freeFuFPi[i] = i;
+      freeFuFPi[freeFuFP] = i;
       freeFuFP++;
     }
   }
