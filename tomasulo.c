@@ -127,7 +127,7 @@ static int fetch_index = 0;
 static bool is_simulation_done(counter_t sim_insn) {
 
   /* ECE552: YOUR CODE GOES HERE */
-  return sim_insn >= 1000000;
+  return sim_insn >= 100;
 }
 
 /*
@@ -141,7 +141,7 @@ static bool is_simulation_done(counter_t sim_insn) {
 void CDB_To_retire(int current_cycle) {
 
   /* ECE552: YOUR CODE GOES HERE */
-	int i, j, fp_bool;
+	int i, j;
 	instruction_t *instr = commonDataBus;
 	// fp_bool => if 1, instr in the CDB is a FP inst
 	// instr => insn pointer
@@ -150,11 +150,11 @@ void CDB_To_retire(int current_cycle) {
 	// cycle_fetched => used to compare multiple insn, to check which was fetched first
 
 	if (instr != NULL){
+		//printf("retiring %p\n", instr);
 		// broadcast complete. this is shown as freeing the RS/maptable/FU/CDB
-		for (i = 0;  i < RESERV_FP_SIZE ; i++){
+		for (i = 0;  i < RESERV_FP_SIZE && USES_INT_FU(instr->op); i++){
 			if (instr == reservFP[i]){
 				reservFP[i] = NULL;
-				fp_bool = 1;
 			}
 			if (reservFP[i] != NULL){
 				for (j = 0; j < 3; j ++){
@@ -163,8 +163,8 @@ void CDB_To_retire(int current_cycle) {
 				}
 			}
 		}
-		for (i = 0;  i < RESERV_INT_SIZE ; i++){
-			if (instr == reservINT[i] && !fp_bool){
+		for (i = 0;  i < RESERV_INT_SIZE && USES_FP_FU(instr->op); i++){
+			if (instr == reservINT[i]){
 				reservINT[i] = NULL;
 			}
 			if (reservINT[i] != NULL){
@@ -175,19 +175,22 @@ void CDB_To_retire(int current_cycle) {
 			}
 		}
 		commonDataBus = NULL;
-		for (i = 0; i < FU_INT_SIZE && !fp_bool; i++){
+		for (i = 0; i < FU_INT_SIZE && USES_INT_FU(instr->op); i++){
 			if (instr == fuINT[i]){
+				//printf("clear FU INT %d\n", i);
 				fuINT[i] = NULL;
 			}
 		}
-		for (i = 0; i < FU_FP_SIZE && fp_bool; i++){
+		for (i = 0; i < FU_FP_SIZE && USES_FP_FU(instr->op); i++){
 			if (instr == fuFP[i]){
+				//printf("clear FU FP %d\n", i);
 				fuFP[i] = NULL;
 			}
 		}
 		// clear map table
 		for (i = 0; i < MD_TOTAL_REGS; i++){
 			if (map_table[i] == instr){
+				//printf("clear map %d\n", i);
 				map_table[i] = NULL;
 			}
 		}
@@ -434,7 +437,7 @@ void dispatch_To_issue(int current_cycle) {
   /* ECE552: YOUR CODE GOES HERE */
   if (instr_queue_size <= 0) return;
 
-  int i, j, reg_num;
+  int j, reg_num;
   int issue = 0;
   instruction_t *instr = NULL;
 
@@ -534,6 +537,7 @@ void fetch(instruction_trace_t* trace) {
       int queue_end = (instr_queue_start + instr_queue_size) % INSTR_QUEUE_SIZE;
       instr_queue[queue_end] = new_instr;
       instr_queue_size++;
+	//printf("instr %p\n", new_instr);
     }
   }
 }
@@ -620,7 +624,7 @@ counter_t runTomasulo(instruction_trace_t* trace)
 	fetch_To_dispatch(trace ,cycle);
 
 	cycle++;
-        if (is_simulation_done(sim_insn_count) || cycle >= 100000000) {
+        if (is_simulation_done(sim_insn_count) || cycle >= 10000000) {
           print_all_instr(trace, sim_num_insn);
           break;
 
