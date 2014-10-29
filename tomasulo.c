@@ -224,6 +224,7 @@ void execute_To_CDB(int current_cycle) {
     if (instr != NULL &&
         (current_cycle - instr->tom_execute_cycle) >= FU_INT_LATENCY) {
       if (WRITES_CDB(instr->op)) {
+        assert(instr->tom_cdb_cycle <= 0);
         // We prioritize the oldest instruction first
         if (old_instr == NULL) {
           old_instr = instr;
@@ -244,6 +245,7 @@ void execute_To_CDB(int current_cycle) {
     if (instr != NULL &&
         (current_cycle - instr->tom_execute_cycle) >= FU_FP_LATENCY) {
       if (WRITES_CDB(instr->op)) {
+        assert(instr->tom_cdb_cycle <= 0);
         // We prioritize the oldest instruction first
         if (old_instr == NULL) {
           old_instr = instr;
