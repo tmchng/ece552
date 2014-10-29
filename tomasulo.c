@@ -420,8 +420,8 @@ void issue_To_execute(int current_cycle) {
 
     // Execute the oldest instruction.
     old_instr->tom_execute_cycle = current_cycle;
-	//printf("execute %p\n", old_instr);
 
+    // Reserve the functional unit.
     // Reserve the functional unit.
     for (j = 0; j < FU_FP_SIZE; j++) {
       if (fuFP[j] == NULL) {
@@ -456,6 +456,7 @@ void dispatch_To_issue(int current_cycle) {
       return;
     }
 
+    issue = 0;
     if (IS_COND_CTRL(instr->op) || IS_UNCOND_CTRL(instr->op)) {
       // Jump and branch can dispatch right away.
       instr->tom_issue_cycle = current_cycle;
@@ -480,6 +481,12 @@ void dispatch_To_issue(int current_cycle) {
         reservFP[j] = instr;
         issue = 1;
       }
+    } else {
+      for (j = 0; reservINT[j] != NULL; j++) {}
+      if (j < RESERV_INT_SIZE) {
+        reservINT[j] = instr;
+        issue = 1;
+      }
     }
 
     if (issue) {
@@ -488,7 +495,7 @@ void dispatch_To_issue(int current_cycle) {
       // Collect input values/tags first
       for (j = 0; j < 3; j++) {
         reg_num = instr->r_in[j];
-        if (reg_num != 0 && map_table[reg_num] != NULL) {
+        if (reg_num != DNA && map_table[reg_num] != NULL) {
           // Map table indicates that an input reg is not ready.
           instr->Q[j] = map_table[reg_num];
         }
@@ -497,7 +504,7 @@ void dispatch_To_issue(int current_cycle) {
       // Update the map table with output reg
       for (j = 0; j < 2; j++) {
         reg_num = instr->r_out[j];
-        if (reg_num != 0) {
+        if (reg_num != DNA) {
           map_table[reg_num] = instr;
         }
       }
