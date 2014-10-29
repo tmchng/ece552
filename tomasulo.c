@@ -115,6 +115,15 @@ static int fetch_index = 0;
 /* RESERVATION STATIONS */
 
 
+/* ECE552 Assignment 3 - BEGIN CODE */
+int is_array_empty(instruction_t **array, int size) {
+  int i;
+  for (i = 0; i < size; i++) {
+    if (array[i]) return 0;
+  }
+  return 1;
+}
+
 /*
  * Description:
  * 	Checks if simulation is done by finishing the very last instruction
@@ -127,7 +136,20 @@ static int fetch_index = 0;
 static bool is_simulation_done(counter_t sim_insn) {
 
   /* ECE552: YOUR CODE GOES HERE */
-  return sim_insn >= 100;
+  int i;
+  int done = 1;
+
+  // Make sure we have fetched all instructions
+  done &= (fetch_index >= sim_insn);
+  done &= (instr_queue_size == 0);
+  // Make sure the entire pipeline is empty
+  done &= is_array_empty(reservINT, RESERV_INT_SIZE);
+  done &= is_array_empty(reservFP, RESERV_FP_SIZE);
+  done &= is_array_empty(fuINT, FU_INT_SIZE);
+  done &= is_array_empty(fuFP, FU_FP_SIZE);
+  done &= (!commonDataBus);
+
+  return done;
 }
 
 /*
@@ -438,8 +460,8 @@ void dispatch_To_issue(int current_cycle) {
 
     issue = 0;
     if (IS_COND_CTRL(instr->op) || IS_UNCOND_CTRL(instr->op)) {
-      // Jump and branch can dispatch right away.
-      instr->tom_issue_cycle = current_cycle;
+      // Jump and branch can dispatch right away and are not issued.
+      // instr->tom_issue_cycle = current_cycle;
       // Simply remove from instr queue.
       instr_queue[instr_queue_start] = NULL;
       instr_queue_start = (instr_queue_start + 1) % INSTR_QUEUE_SIZE;
@@ -521,6 +543,10 @@ void fetch(instruction_trace_t* trace) {
     // Fetch ONE instruction
     // Fetch index starts from 1
     fetch_index++;
+    if (fetch_index > sim_num_insn) {
+      // No more instruction to fetch.
+      return;
+    }
     new_instr = get_instr(trace, fetch_index);
 
     // Skip TRAP instructions
@@ -621,10 +647,9 @@ counter_t runTomasulo(instruction_trace_t* trace)
 	fetch_To_dispatch(trace ,cycle);
 
 	cycle++;
-        if (is_simulation_done(sim_insn_count) || cycle >= 10000000) {
-          print_all_instr(trace, sim_num_insn);
+        if (is_simulation_done(sim_num_insn)) {
+          //print_all_instr(trace, sim_num_insn);
           break;
-
         }
   }
 
