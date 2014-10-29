@@ -152,24 +152,24 @@ void CDB_To_retire(int current_cycle) {
 	if (instr != NULL){
 		//printf("retiring %p\n", instr);
 		// broadcast complete. this is shown as freeing the RS/maptable/FU/CDB
-		for (i = 0;  i < RESERV_FP_SIZE && USES_INT_FU(instr->op); i++){
-			if (instr == reservFP[i]){
+		for (i = 0;  i < RESERV_FP_SIZE; i++){
+			if (instr == reservFP[i] && USES_FP_FU(instr->op)){
 				reservFP[i] = NULL;
 			}
 			if (reservFP[i] != NULL){
 				for (j = 0; j < 3; j ++){
-					if (reservFP[i]->Q[j] == instr)// clear dependencies (resolve RAQs)
+					if (reservFP[i]->Q[j] == instr)// clear dependencies (resolve RAWs)
 						reservFP[i]->Q[j] = NULL;
 				}
 			}
 		}
-		for (i = 0;  i < RESERV_INT_SIZE && USES_FP_FU(instr->op); i++){
-			if (instr == reservINT[i]){
+		for (i = 0;  i < RESERV_INT_SIZE; i++){
+			if (instr == reservINT[i] && USES_INT_FU(instr->op)){
 				reservINT[i] = NULL;
 			}
 			if (reservINT[i] != NULL){
 				for (j = 0; j < 3; j ++){
-					if (reservINT[i]->Q[j] == instr)// clear dependencies (resolve RAQs)
+					if (reservINT[i]->Q[j] == instr)// clear dependencies (resolve RAWs)
 						reservINT[i]->Q[j] = NULL;
 				}
 			}
@@ -379,6 +379,7 @@ void issue_To_execute(int current_cycle) {
 
     // Execute the oldest instruction.
     old_instr->tom_execute_cycle = current_cycle;
+	//printf("execute %p\n", old_instr);
     // Reserve the functional unit.
     fuINT[freeFuINTi[freeFuINT-1]] = old_instr;
     freeFuINT--;
@@ -420,6 +421,8 @@ void issue_To_execute(int current_cycle) {
 
     // Execute the oldest instruction.
     old_instr->tom_execute_cycle = current_cycle;
+	//printf("execute %p\n", old_instr);
+
     // Reserve the functional unit.
     fuFP[freeFuFPi[freeFuFP-1]] = old_instr;
     freeFuFP--;
