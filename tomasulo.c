@@ -284,11 +284,14 @@ void execute_To_CDB(int current_cycle) {
   }
 
   if (old_instr != NULL) {
+    // Free the RS and FU right away when instr wins CDB.
+    completed[instr_completed] = old_instr;
+    instr_completed++;
+
     // Move the oldest completed instruction to CDB
     old_instr->tom_cdb_cycle = current_cycle;
     commonDataBus = old_instr;
-    // Retire will handle deallocate RS and FU for instruction
-    // that needs CDB.
+
   }
 
   // For every completed instructions that don't need CDB,
@@ -323,6 +326,21 @@ void execute_To_CDB(int current_cycle) {
           break;
         }
       }
+    } else {
+      // For instr that uses no FU, treat as it uses INT FU
+      for (j = 0; j < FU_INT_SIZE; j++) {
+        if (fuINT[j] == instr) {
+          fuINT[j] = NULL;
+          break;
+        }
+      }
+      for (j = 0; j < RESERV_INT_SIZE; j++) {
+        if (reservINT[j] == instr) {
+          reservINT[j] = NULL;
+          break;
+        }
+      }
+
     }
   }
 }
