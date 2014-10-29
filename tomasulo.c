@@ -320,9 +320,7 @@ void issue_To_execute(int current_cycle) {
   /* ECE552: YOUR CODE GOES HERE */
   int i, j, k;
   int freeFuINT = 0;
-  int freeFuINTi[FU_INT_SIZE];
   int freeFuFP = 0;
-  int freeFuFPi[FU_FP_SIZE];
 
   int ready;
   instruction_t *instr = NULL;
@@ -331,14 +329,12 @@ void issue_To_execute(int current_cycle) {
   // Count number of free INT FU's.
   for (i = 0; i < FU_INT_SIZE; i++) {
     if (fuINT[i] == NULL) {
-      freeFuINTi[freeFuINT] = i;
       freeFuINT++;
     }
   }
   // Count number of free FP FU's.
   for (i = 0; i < FU_FP_SIZE; i++) {
     if (fuFP[i] == NULL) {
-      freeFuFPi[freeFuFP] = i;
       freeFuFP++;
     }
   }
@@ -379,10 +375,13 @@ void issue_To_execute(int current_cycle) {
 
     // Execute the oldest instruction.
     old_instr->tom_execute_cycle = current_cycle;
-	//printf("execute %p\n", old_instr);
     // Reserve the functional unit.
-    fuINT[freeFuINTi[freeFuINT-1]] = old_instr;
-    freeFuINT--;
+    for (j = 0; j < FU_INT_SIZE; j++) {
+      if (fuINT[j] == NULL) {
+        fuINT[j] = old_instr;
+        freeFuINT--;
+      }
+    }
   }
 
   while (freeFuFP > 0) {
@@ -424,8 +423,12 @@ void issue_To_execute(int current_cycle) {
 	//printf("execute %p\n", old_instr);
 
     // Reserve the functional unit.
-    fuFP[freeFuFPi[freeFuFP-1]] = old_instr;
-    freeFuFP--;
+    for (j = 0; j < FU_FP_SIZE; j++) {
+      if (fuFP[j] == NULL) {
+        fuFP[j] = old_instr;
+        freeFuFP--;
+      }
+    }
   }
 }
 
