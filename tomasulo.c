@@ -438,10 +438,10 @@ void dispatch_To_issue(int current_cycle) {
   int issue = 0;
   instruction_t *instr = NULL;
 
-  for (i = 0; i < INSTR_QUEUE_SIZE; i++) {
-    instr = instr_queue[(instr_queue_start+i)%INSTR_QUEUE_SIZE];
+  while (instr_queue_size > 0) {
+    instr = instr_queue[instr_queue_start];
     if (instr == NULL) {
-      // We have to issue in order.
+      // If the first instr is null then the queue is empty.
       return;
     }
 
