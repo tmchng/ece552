@@ -136,7 +136,6 @@ int is_array_empty(instruction_t **array, int size) {
 static bool is_simulation_done(counter_t sim_insn) {
 
   /* ECE552: YOUR CODE GOES HERE */
-  int i;
   int done = 1;
 
   // Make sure we have fetched all instructions
@@ -147,7 +146,6 @@ static bool is_simulation_done(counter_t sim_insn) {
   done &= is_array_empty(reservFP, RESERV_FP_SIZE);
   done &= is_array_empty(fuINT, FU_INT_SIZE);
   done &= is_array_empty(fuFP, FU_FP_SIZE);
-  done &= (!commonDataBus);
 
   return done;
 }
@@ -359,8 +357,6 @@ void issue_To_execute(int current_cycle) {
 
   /* ECE552: YOUR CODE GOES HERE */
   int i, j, k;
-  int freeFuINT = 0;
-  int freeFuFP = 0;
 
   int ready;
   instruction_t *instr = NULL;
@@ -484,7 +480,7 @@ void dispatch_To_issue(int current_cycle) {
       instr_queue[instr_queue_start] = NULL;
       instr_queue_start = (instr_queue_start + 1) % INSTR_QUEUE_SIZE;
       instr_queue_size--;
-      continue;
+      return;
 
     } else if (USES_INT_FU(instr->op)) {
       // Find available reservation station.
@@ -535,7 +531,7 @@ void dispatch_To_issue(int current_cycle) {
       instr_queue[instr_queue_start] = NULL;
       instr_queue_start = (instr_queue_start + 1) % INSTR_QUEUE_SIZE;
       instr_queue_size--;
-
+	return;
     } else {
       // Cannot go from dispatch to issue out of order.
       return;
